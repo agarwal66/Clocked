@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Access Control API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .section { margin: 20px 0; padding: 20px; border: 1px solid #ccc; }
+        button { padding: 10px 20px; margin: 10px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin: 10px 0; padding: 10px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        input, textarea { width: 100%; padding: 8px; margin: 5px 0; }
+        label { display: block; margin: 10px 0 5px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Admin Access Control API Test</h1>
+        
+        <div class="section">
+            <h3>📝 Step 1: Login</h3>
+            <label>Email:</label>
+            <input type="email" id="email" value="admin@clocked.in">
+            <label>Password:</label>
+            <input type="password" id="password" value="admin123">
+            <button onclick="login()">🔑 Login</button>
+            <div id="loginResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h3>🏷️ Step 2: Create Role</h3>
+            <label>Role Key:</label>
+            <input type="text" id="roleKey" placeholder="test_role">
+            <label>Role Label:</label>
+            <input type="text" id="roleLabel" placeholder="Test Role">
+            <label>Role Description:</label>
+            <textarea id="roleDescription" placeholder="Role created via API test"></textarea>
+            <button onclick="createRole()" id="createBtn">🆕 Create Role</button>
+            <div id="roleResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h3>👥 Step 3: Fetch Roles</h3>
+            <button onclick="fetchRoles()">📋 Fetch All Roles</button>
+            <div id="rolesResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        let adminToken = '';
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('loginResult');
+
+            try {
+                const response = await fetch('http://localhost:5004/api/admin/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.token) {
+                    adminToken = data.token;
+                    resultDiv.innerHTML = '<div class="success">✅ Login successful! Token: ' + data.token.substring(0, 50) + '...</div>';
+                    resultDiv.className = 'result success';
+                } else {
+                    resultDiv.innerHTML = '<div class="error">❌ Login failed: ' + (data.message || 'Unknown error') + '</div>';
+                    resultDiv.className = 'result error';
+                }
+            } catch (error) {
+                resultDiv.innerHTML = '<div class="error">❌ Error: ' + error.message + '</div>';
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function createRole() {
+            if (!adminToken) {
+                alert('Please login first!');
+                return;
+            }
+
+            const roleKey = document.getElementById('roleKey').value;
+            const roleLabel = document.getElementById('roleLabel').value;
+            const roleDescription = document.getElementById('roleDescription').value;
+            const resultDiv = document.getElementById('roleResult');
+            const createBtn = document.getElementById('createBtn');
+
+            createBtn.disabled = true;
+            createBtn.textContent = '🔄 Creating...';
+
+            try {
+                console.log('🔗 Sending request to: http://localhost:5004/api/admin/access/roles');
+                console.log('🔑 Token:', adminToken.substring(0, 50) + '...');
+                console.log('📝 Role data:', { key: roleKey, label: roleLabel, description: roleDescription, is_active: true });
+
+                const response = await fetch('http://localhost:5004/api/admin/access/roles', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + adminToken
+                    },
+                    body: JSON.stringify({
+                        key: roleKey,
+                        label: roleLabel,
+                        description: roleDescription,
+                        is_active: true
+                    })
+                });
+
+                const data = await response.json();
+                console.log('📊 Response status:', response.status);
+                console.log('📊 Response data:', data);
+
+                if (response.ok) {
+                    resultDiv.innerHTML = '<div class="success">🎉 Role created successfully!<br>ID: ' + data.role._id + '<br>Key: ' + data.role.key + '<br>Label: ' + data.role.label + '</div>';
+                    resultDiv.className = 'result success';
+                } else {
+                    resultDiv.innerHTML = '<div class="error">❌ Failed to create role: ' + (data.message || 'Unknown error') + '</div>';
+                    resultDiv.className = 'result error';
+                }
+            } catch (error) {
+                console.error('❌ Error:', error);
+                resultDiv.innerHTML = '<div class="error">❌ Error: ' + error.message + '</div>';
+                resultDiv.className = 'result error';
+            } finally {
+                createBtn.disabled = false;
+                createBtn.textContent = '🆕 Create Role';
+            }
+        }
+
+        async function fetchRoles() {
+            if (!adminToken) {
+                alert('Please login first!');
+                return;
+            }
+
+            const resultDiv = document.getElementById('rolesResult');
+
+            try {
+                const response = await fetch('http://localhost:5004/api/admin/access/roles', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + adminToken
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    let rolesHtml = '<div class="success">🎉 Found ' + data.roles.length + ' roles:<br><br>';
+                    data.roles.forEach((role, i) => {
+                        rolesHtml += (i + 1) + '. ' + role.label + ' (' + role.key + ') - ' + (role.is_active ? 'Active' : 'Inactive') + '<br>';
+                    });
+                    rolesHtml += '</div>';
+                    resultDiv.innerHTML = rolesHtml;
+                    resultDiv.className = 'result success';
+                } else {
+                    resultDiv.innerHTML = '<div class="error">❌ Failed to fetch roles: ' + (data.message || 'Unknown error') + '</div>';
+                    resultDiv.className = 'result error';
+                }
+            } catch (error) {
+                resultDiv.innerHTML = '<div class="error">❌ Error: ' + error.message + '</div>';
+                resultDiv.className = 'result error';
+            }
+        }
+
+        // Auto-login on page load
+        window.onload = function() {
+            login();
+        };
+    </script>
+</body>
+</html>

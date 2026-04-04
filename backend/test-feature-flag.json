@@ -1,0 +1,7 @@
+{
+  "active": true,
+  "metadata": {
+    "model": "gpt-4",
+    "confidence_threshold": 0.9
+  }
+}
