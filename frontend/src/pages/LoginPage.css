@@ -1,0 +1,253 @@
+.login-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #F8F7F3 0%, #F2F1EC 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.login-container {
+  width: 100%;
+  max-width: 400px;
+}
+
+.login-card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  padding: 40px;
+  border: 1px solid #E5E4DE;
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.logo h1 {
+  font-family: 'Syne', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  color: #0C0C0A;
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.flag {
+  width: 12px;
+  height: 20px;
+  clip-path: polygon(0 0, 100% 15%, 100% 85%, 0 100%);
+  display: block;
+}
+
+.flag-r {
+  background: #E2353A;
+}
+
+.flag-g {
+  background: #1A9E5F;
+}
+
+.login-header h2 {
+  font-family: 'Syne', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: #0C0C0A;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.5px;
+}
+
+.login-header p {
+  color: #5E5D58;
+  font-size: 16px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.login-form {
+  margin-bottom: 24px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #5E5D58;
+  margin-bottom: 6px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #E5E4DE;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #0C0C0A;
+  box-shadow: 0 0 0 3px rgba(12, 12, 10, 0.1);
+}
+
+.password-input {
+  position: relative;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #5E5D58;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px;
+  font-weight: 500;
+}
+
+.password-toggle:hover {
+  color: #0C0C0A;
+}
+
+.login-btn {
+  width: 100%;
+  background: #0C0C0A;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 14px;
+  font-family: 'Syne', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: -0.3px;
+}
+
+.login-btn:hover:not(:disabled) {
+  background: #5E5D58;
+  transform: translateY(-1px);
+}
+
+.login-btn:active {
+  transform: translateY(0);
+}
+
+.login-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error-message {
+  background: #FFF0F0;
+  border: 1px solid #FFBDBE;
+  color: #E2353A;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.form-footer {
+  text-align: center;
+}
+
+.forgot-link {
+  background: none;
+  border: none;
+  color: #0C0C0A;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: 16px;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.forgot-link:hover {
+  color: #5E5D58;
+}
+
+.signup-link {
+  font-size: 14px;
+  color: #5E5D58;
+}
+
+.signup-link a {
+  color: #0C0C0A;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.signup-link a:hover {
+  text-decoration: underline;
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  color: #0C0C0A;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 16px;
+}
+
+.back-btn:hover {
+  color: #5E5D58;
+}
+
+.reset-success {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.success-icon {
+  width: 48px;
+  height: 48px;
+  background: #1A9E5F;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: bold;
+  margin: 0 auto 16px;
+}
+
+.reset-success h3 {
+  font-family: 'Syne', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: #0C0C0A;
+  margin: 0 0 8px 0;
+}
+
+.reset-success p {
+  color: #5E5D58;
+  font-size: 14px;
+  margin: 0 0 8px 0;
+  line-height: 1.5;
+}
