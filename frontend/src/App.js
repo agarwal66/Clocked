@@ -43,6 +43,7 @@ function AppRoutes() {
           <AdminPanel />
         </ProtectedRoute>
       } />
+      <Route path="/admin/login" element={<AdminPanel />} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );

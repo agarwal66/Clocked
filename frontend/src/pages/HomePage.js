@@ -73,6 +73,8 @@ const pageCss = `
 .btn-ghost:hover { background: rgba(255,255,255,0.2); }
 .btn-solid { font-family: 'DM Sans', sans-serif; font-size: 0.82rem; font-weight: 600; color: var(--black); background: #ffffff; border: 1px solid #ffffff; border-radius: 30px; padding: 6px 18px; cursor: pointer; text-decoration: none; transition: opacity 0.15s; }
 .btn-solid:hover { opacity: 0.88; }
+.btn-admin { font-family: 'DM Sans', sans-serif; font-size: 0.82rem; font-weight: 600; color: var(--red); background: rgba(255,255,255,0.15); border: 1px solid var(--red); border-radius: 30px; padding: 6px 16px; cursor: pointer; text-decoration: none; transition: all 0.15s; }
+.btn-admin:hover { background: var(--red); color: white; }
 .hero-section { position: relative; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 2rem 120px; text-align: center; z-index: 1; }
 .hero-badge { display: inline-flex; align-items: center; gap: 7px; background: rgba(255,255,255,0.13); border: 1px solid rgba(255,255,255,0.28); border-radius: 30px; padding: 6px 16px; font-size: 0.75rem; font-weight: 500; color: #ffffff; margin-bottom: 1.75rem; backdrop-filter: blur(8px); animation: fadeUp 0.6s ease both; }
 .badge-dot { width: 7px; height: 7px; background: var(--green); border-radius: 50%; animation: pulse 2s infinite; flex-shrink: 0; }
@@ -416,6 +418,7 @@ useEffect(() => {
             </>
           ) : (
             <>
+              <Link to="/admin/login" className="btn-admin">Admin</Link>
               <Link to="/login" className="btn-ghost">{navSecondaryAction.label}</Link>
               <Link to={navPrimaryAction.to} className="btn-solid">{navPrimaryAction.label}</Link>
             </>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState, useReducer } from "react";
+import { useNavigate } from "react-router-dom";
 import AdminMetaGroupsPage from "../components/AdminMetaGroupsPage";
 import AdminMetaItemsPage from "../components/AdminMetaItemsPage";
 import AdminContentBlocksPage from "../components/AdminContentBlocksPage";
@@ -95,6 +96,7 @@ function cx(...values) {
 }
 
 export default function ClockedAdminFoundation() {
+  const navigate = useNavigate();
   const [bootLoading, setBootLoading] = useState(true);
   const [sessionChecked, setSessionChecked] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -251,6 +253,9 @@ export default function ClockedAdminFoundation() {
     setActiveRoute("dashboard");
     setSelectedGroupId(null);
     setGroupForm(GROUP_FORM_DEFAULT);
+    
+    // Redirect to homepage
+    navigate("/");
   }
 
   function selectGroup(group) {
