@@ -94,7 +94,6 @@ async function apiRequest(url, options = {}) {
 function cx(...values) {
   return values.filter(Boolean).join(" ");
 }
-
 export default function ClockedAdminFoundation() {
   const navigate = useNavigate();
   const [bootLoading, setBootLoading] = useState(true);
