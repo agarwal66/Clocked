@@ -5,6 +5,10 @@ const API_BASE = process.env.REACT_APP_API_BASE_URL || "http://localhost:5004/ap
 
 async function apiFetch(path, options = {}) {
   const token = localStorage.getItem('clocked_token');
+  console.log(" SearchPage: Token from localStorage:", token);
+  console.log(" SearchPage: API_BASE:", API_BASE);
+  console.log(" SearchPage: Request path:", path);
+  
   const response = await fetch(`${API_BASE}${path}`, {
     credentials: "include",
     headers: {
@@ -14,6 +18,9 @@ async function apiFetch(path, options = {}) {
     },
     ...options,
   });
+
+  console.log(" SearchPage: Response status:", response.status);
+  console.log(" SearchPage: Response headers:", response.headers);
 
   if (!response.ok) {
     let message = "Request failed";
@@ -483,9 +490,9 @@ export default function SearchPage() {
   const [flagForm, setFlagForm] = useState({
     relation: "",
     timeframe: "",
-    category: "",
+    category_id: "",
     text: "",
-    anonymous: true,
+    identity: true,
   });
   const [submittingFlag, setSubmittingFlag] = useState(false);
   const [knownMap, setKnownMap] = useState({});
@@ -634,22 +641,28 @@ export default function SearchPage() {
     setSubmittingFlag(true);
     try {
       const payload = {
-        handle: data.profile.handle,
-        type: flagType,
-        relation: flagForm.relation,
+        handle_id: data.profile.handle,
+        flag_type: flagType,
+        relationship: flagForm.relation,
         timeframe: flagForm.timeframe,
-        category: flagForm.category,
-        text: flagForm.text,
-        anonymous: flagForm.anonymous,
+        category_id: flagForm.category_id,
+        comment: flagForm.text,
+        identity: flagForm.identity ? "anonymous" : "named",
       };
+      
+      console.log(" SearchPage: Submitting flag payload:", JSON.stringify(payload, null, 2));
+      
       await apiFetch("/flags", {
         method: "POST",
         body: JSON.stringify(payload),
       });
+      
+      console.log(" SearchPage: Flag submitted successfully!");
       setShareToast("Flag posted! Thank you for your contribution to the community.");
       setOpenFlagBox(false);
-      setFlagForm({ relation: "", timeframe: "", category: "", text: "", anonymous: true });
+      setFlagForm({ relation: "", timeframe: "", category_id: "", text: "", identity: true });
     } catch (err) {
+      console.error(" SearchPage: Error submitting flag:", err);
       setError(err.message || "Could not post flag.");
     } finally {
       setSubmittingFlag(false);
@@ -668,7 +681,11 @@ export default function SearchPage() {
   }
 
   function shareVibe() {
-    setShareToast("Vibe card generated! In the real app this would open a shareable card image.");
+    const handle = data.profile.handle;
+    if (handle) {
+      window.open(`/vibe-card/${handle}`, "_blank");
+    }
+    setShareToast("Opening vibe card...");
   }
 
   function submitReply(flagId) {
@@ -849,9 +866,12 @@ export default function SearchPage() {
                 <option>💔 Dated</option>
                 <option>☕ Went on a date</option>
                 <option>📱 Followed online</option>
-                <option>🤝 Met in person</option>
-                <option>🏫 College / school</option>
-                <option>💼 Work / business</option>
+                <option>👥 Met in person</option>
+                <option>💼 Worked together</option>
+                <option>🎓 Went to school together</option>
+                <option>🏫 Lived together</option>
+                <option>👨‍👩‍👧‍👦 Family</option>
+                <option>🤝 Friends</option>
                 <option>🛍️ Bought / sold</option>
                 <option>👂 Heard through people</option>
               </select>
@@ -863,30 +883,29 @@ export default function SearchPage() {
                 <option>Over a year ago</option>
               </select>
             </div>
-            <select className="fsi-select" style={{ width: "100%", marginBottom: 10 }} value={flagForm.category} onChange={(e) => setFlagForm((c) => ({ ...c, category: e.target.value }))}>
+            <select className="fsi-select" style={{ width: "100%", marginBottom: 10 }} value={flagForm.category_id} onChange={(e) => setFlagForm((c) => ({ ...c, category_id: e.target.value }))}>
               <option value="">Select a category...</option>
               <optgroup label="🚩 Red flag categories">
                 <option>Ghosting / went silent</option>
                 <option>Love bombing</option>
-                <option>Fake / catfish</option>
-                <option>Scammer / fraud</option>
-                <option>Emotionally unavailable</option>
-                <option>Rude / toxic behaviour</option>
-                <option>Cheated / dishonest</option>
+                <option>Disrespectful</option>
+                <option>Unreliable</option>
+                <option>Dishonest</option>
+                <option>Manipulative</option>
+                <option>Aggressive</option>
               </optgroup>
               <optgroup label="🟢 Green flag categories">
-                <option>Genuine & kind</option>
-                <option>Great communicator</option>
-                <option>Legit & honest</option>
-                <option>Super helpful</option>
-                <option>Great seller / buyer</option>
                 <option>Trustworthy</option>
+                <option>Kind</option>
+                <option>Reliable</option>
+                <option>Professional</option>
+                <option>Respectful</option>
               </optgroup>
             </select>
             <textarea className="fsi-textarea" placeholder="Share your experience... what happened? (optional, max 300 chars)" maxLength={300} value={flagForm.text} onChange={(e) => setFlagForm((c) => ({ ...c, text: e.target.value }))}></textarea>
             <div className="fsi-bottom">
               <label className="fsi-anon-toggle">
-                <input type="checkbox" checked={flagForm.anonymous} onChange={(e) => setFlagForm((c) => ({ ...c, anonymous: e.target.checked }))} />
+                <input type="checkbox" checked={flagForm.identity} onChange={(e) => setFlagForm((c) => ({ ...c, identity: e.target.checked }))} />
                 Post anonymously
               </label>
               <div style={{ display: "flex", gap: 8 }}>

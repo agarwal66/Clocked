@@ -22,6 +22,8 @@ const searchLogsRoutes = require('./routes/searchLogs');
 const watchlistsRoutes = require('./routes/watchlists');
 const accessControlRoutes = require('./routes/accessControl');
 const usernameCheckRoutes = require('./routes/username-check');
+const vibeCardRoutes = require('./routes/vibe-card');
+const userFlagsRoutes = require('./routes/user-flags');
 
 const app = express();
 
@@ -81,7 +83,8 @@ app.use('/api/notifications', notificationRoutes); // NEW: Notification system r
 app.use('/api/admin/search-logs', searchLogsRoutes); // NEW: Search logs routes
 app.use('/api/watchlists', watchlistsRoutes); // NEW: Watchlist system routes
 app.use('/api/admin/access', accessControlRoutes); // NEW: Access control routes
-app.use('/api/dashboard', dashboardRoutes); // NEW: Dashboard routes
+app.use('/api/vibe-card', vibeCardRoutes); // NEW: Vibe card routes
+app.use('/api/user', userFlagsRoutes); // NEW: User flags routes
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

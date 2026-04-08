@@ -413,12 +413,13 @@ useEffect(() => {
         <div className="nav-right">
           {isAuthenticated ? (
             <>
+              {/* <Link to="/vibe-card/me" className="btn-ghost">My Card</Link> */}
               <button onClick={handleLogout} className="btn-ghost">{navSecondaryAction.label}</button>
               <Link to={navPrimaryAction.to} className="btn-solid">{navPrimaryAction.label}</Link>
             </>
           ) : (
             <>
-              <Link to="/admin/login" className="btn-admin">Admin</Link>
+              {/* <Link to="/admin/login" className="btn-admin">Admin</Link> */}
               <Link to="/login" className="btn-ghost">{navSecondaryAction.label}</Link>
               <Link to={navPrimaryAction.to} className="btn-solid">{navPrimaryAction.label}</Link>
             </>
@@ -574,7 +575,7 @@ useEffect(() => {
             <div className="flagme-card">
               <p className="flagme-title">{homeData.flagMe.title}</p>
               <p className="flagme-sub">{homeData.flagMe.subtitle}</p>
-              <Link to="/flagme" className="flagme-btn">{homeData.flagMe.ctaLabel}</Link>
+              <Link to="/vibe-card/me" className="flagme-btn">{homeData.flagMe.ctaLabel}</Link>
             </div>
           </aside>
         </div>

@@ -389,14 +389,108 @@ export default function DashboardPageComplete() {
   async function loadDashboard() {
     setLoading(true);
     setError("");
+    let ignore = false;
+    
     try {
       const payload = await authAPI.getCurrentUser();
-      setData(mapDashboardPayload(payload || {}));
+      
+      // Get token from localStorage
+      const token = localStorage.getItem('clocked_token');
+      
+      // Fetch user's posted flags
+      try {
+        const flagsPostedResponse = await fetch(`${process.env.REACT_APP_API_BASE_URL || "http://localhost:5004/api"}/user/flags`, {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json"
+          }
+        });
+        
+        if (flagsPostedResponse.ok && !ignore) {
+          const flagsPostedData = await flagsPostedResponse.json();
+          payload.flagsPosted = flagsPostedData.flags.map(flag => ({
+            id: flag.id,
+            type: flag.type,
+            handle: flag.handle_info?.instagram_handle || 'Unknown',
+            category: flag.category,
+            comment: flag.comment,
+            relationship: flag.relationship,
+            timeframe: flag.timeframe,
+            time: formatRelativeTime(flag.created_at),
+            anonymous: flag.anonymous
+          }));
+        }
+      } catch (flagsError) {
+        if (!ignore) {
+          console.warn('Failed to load user flags:', flagsError);
+          payload.flagsPosted = [];
+        }
+      }
+      
+      // Fetch flags on user's handle
+      try {
+        const flagsOnMeResponse = await fetch(`${process.env.REACT_APP_API_BASE_URL || "http://localhost:5004/api"}/user/flags-on-me`, {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json"
+          }
+        });
+        
+        if (flagsOnMeResponse.ok && !ignore) {
+          const flagsOnMeData = await flagsOnMeResponse.json();
+          payload.flagsOnMe = flagsOnMeData.flags.map(flag => ({
+            id: flag.id,
+            type: flag.type,
+            category: flag.category,
+            comment: flag.comment,
+            relationship: flag.relationship,
+            timeframe: flag.timeframe,
+            time: formatRelativeTime(flag.created_at),
+            posted_by: flag.posted_by,
+            anonymous: flag.anonymous
+          }));
+          
+          // Update overview stats
+          payload.overview = {
+            ...payload.overview,
+            totalFlagsOnMe: flagsOnMeData.stats.total,
+            flagsOnMeBreakdown: `${flagsOnMeData.stats.red} red · ${flagsOnMeData.stats.green} green flags`
+          };
+        }
+      } catch (flagsOnMeError) {
+        if (!ignore) {
+          console.warn('Failed to load flags on user:', flagsOnMeError);
+          payload.flagsOnMe = [];
+        }
+      }
+      
+      if (ignore) return;
+      setData(mapDashboardPayload(payload));
+      setError("");
     } catch (err) {
-      setData(EMPTY_DASHBOARD);
-      setError(err.message || "Failed to load dashboard.");
+      if (!ignore) {
+        console.error("Dashboard load error:", err);
+        setError(err.message || "Failed to load dashboard");
+      }
     } finally {
-      setLoading(false);
+      if (!ignore) setLoading(false);
+    }
+  }
+
+  // Helper function to format relative time
+  function formatRelativeTime(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffDays > 0) {
+      return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    } else if (diffHours > 0) {
+      return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    } else {
+      return 'Just now';
     }
   }
 
@@ -549,16 +643,23 @@ export default function DashboardPageComplete() {
 
   function goSearch(override) {
     const handle = (override || searchInput).trim().replace(/^@/, "");
-    if (!handle) return;
+    if (!handle) {
+      // If no handle provided, just navigate to search page without parameters
+      navigate(data.quickActions.searchPath || "/search");
+      return;
+    }
     navigate(`${data.quickActions.searchPath || "/search"}?handle=${encodeURIComponent(handle)}`);
   }
 
   function openShareVibe() {
-    if (data.quickActions.vibeCardUrl) {
-      navigate(`/vibe/${encodeURIComponent(data.user.username)}`);
-      return;
+    const username = data.user.username;
+    if (username) {
+      // Open VibeCard in new tab like SearchPage
+      window.open(`/vibe-card/${encodeURIComponent(username)}`, "_blank");
+    } else {
+      // Fallback to /vibe-card/me if no username
+      window.open("/vibe-card/me", "_blank");
     }
-    navigate(`/vibe/${encodeURIComponent(data.user.username)}`);
   }
 
   const searchDropdownVisible = searchFocused && (searchLoading || searchSuggestions.length > 0);
@@ -818,11 +919,18 @@ export default function DashboardPageComplete() {
                   <div className="flag-row" key={item.id}>
                     <div className={cx("flag-dot", item.type)}></div>
                     <div className="flag-body">
-                      <div className="flag-handle">@{item.handle} · {item.type === "red" ? "Red flag" : "Green flag"}</div>
-                      <div className="flag-snippet">{item.snippet}</div>
-                      <div className="flag-tags">{safeArray(item.tags).map((tag) => <span key={tag} className={cx("tag", tag.includes("Love") || tag.includes("Ghost") ? "red" : tag.includes("Genuine") ? "green" : "gray")}>{tag}</span>)}</div>
+                      <div className="flag-text">
+                        <span className={cx("flag-badge", item.type)}>{item.type === "red" ? "Red" : "Green"} flag on @{item.handle}</span>
+                        <span className="flag-cat">{item.category}</span>
+                        <span className="flag-time">{item.time}</span>
+                      </div>
+                      <div className="flag-comment">{item.comment}</div>
+                      <div className="flag-meta">
+                        <span>{item.relationship}</span>
+                        <span>{item.timeframe}</span>
+                        {item.anonymous && <span className="anon-badge">Anonymous</span>}
+                      </div>
                     </div>
-                    <div className="flag-time">{item.time}</div>
                   </div>
                 )) : <EmptyState icon="✍️" title="You haven’t posted any flags yet" copy="When you contribute to the community, those posts will appear here." />}
               </div>

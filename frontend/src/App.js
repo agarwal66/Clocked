@@ -7,6 +7,9 @@ import DashboardPage from './pages/DashboardPage';
 import AdminPanel from './pages/AdminPanel';
 import HomePage from './pages/HomePage';
 import SearchPage from './pages/SearchPage';
+import VibeCardPage from './pages/VibeCardPage';
+import FlagPage from './pages/FlagPage';
+import FlagMePage from './pages/FlagMePage';
 import './App.css';
 
 // Protected Route Component
@@ -27,6 +30,10 @@ function AppRoutes() {
       <Route path="/" element={<HomePage />} />
       <Route path="/home" element={<HomePage />} />
       <Route path="/search" element={<SearchPage />} />
+      <Route path="/flag" element={<FlagPage />} />
+      <Route path="/flagme" element={<FlagMePage />} />
+      <Route path="/@:handle" element={<VibeCardPage />} />
+      <Route path="/vibe-card/:handle" element={<VibeCardPage />} />
       <Route path="/login" element={
         <PublicRoute>
           <LoginPage />
