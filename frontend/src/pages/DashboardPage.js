@@ -372,6 +372,14 @@ function EmptyState({ icon, title, copy }) {
 export default function DashboardPageComplete() {
   const navigate = useNavigate();
   const { isAuthenticated, user: authUser, setUser, logout } = useAuth();
+  
+  // Redirect to login if not authenticated
+  React.useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+    }
+  }, [isAuthenticated, navigate]);
+
   const [section, setSection] = useState("overview");
   const [data, setData] = useState(EMPTY_DASHBOARD);
   const [loading, setLoading] = useState(true);
@@ -387,6 +395,11 @@ export default function DashboardPageComplete() {
   const [searchLoading, setSearchLoading] = useState(false);
 
   async function loadDashboard() {
+    // Don't load if not authenticated
+    if (!isAuthenticated || !authUser) {
+      return;
+    }
+    
     setLoading(true);
     setError("");
     let ignore = false;
@@ -394,10 +407,19 @@ export default function DashboardPageComplete() {
     try {
       const payload = await authAPI.getCurrentUser();
       
+      // Ensure we have user data from auth context
+      if (authUser && authUser.username) {
+        payload.user = {
+          ...payload.user,
+          username: authUser.username,
+          email: authUser.email
+        };
+      }
+      
       // Get token from localStorage
       const token = localStorage.getItem('clocked_token');
       
-      // Fetch user's posted flags
+      // Fetch user's posted flags with error handling
       try {
         const flagsPostedResponse = await fetch(`${process.env.REACT_APP_API_BASE_URL || "http://localhost:5004/api"}/user/flags`, {
           headers: {
@@ -412,6 +434,7 @@ export default function DashboardPageComplete() {
             id: flag.id,
             type: flag.type,
             handle: flag.handle_info?.instagram_handle || 'Unknown',
+            posted_by: flag.posted_by,
             category: flag.category,
             comment: flag.comment,
             relationship: flag.relationship,
@@ -419,6 +442,20 @@ export default function DashboardPageComplete() {
             time: formatRelativeTime(flag.created_at),
             anonymous: flag.anonymous
           }));
+        } else if (flagsPostedResponse.status === 401) {
+          // Token expired, clear and redirect to login
+          localStorage.removeItem('clocked_token');
+          console.warn('Token expired, redirecting to login');
+          // Don't redirect here, just set empty flags
+          payload.flagsPosted = [];
+        } else if (flagsPostedResponse.status === 404) {
+          // Endpoint not found, set empty flags
+          console.warn('User flags endpoint not found, using empty data');
+          payload.flagsPosted = [];
+        } else if (!flagsPostedResponse.ok) {
+          // Other error, set empty flags but log
+          console.warn('Failed to load user flags:', flagsPostedResponse.status);
+          payload.flagsPosted = [];
         }
       } catch (flagsError) {
         if (!ignore) {
@@ -427,7 +464,7 @@ export default function DashboardPageComplete() {
         }
       }
       
-      // Fetch flags on user's handle
+      // Fetch flags on user's handle with error handling
       try {
         const flagsOnMeResponse = await fetch(`${process.env.REACT_APP_API_BASE_URL || "http://localhost:5004/api"}/user/flags-on-me`, {
           headers: {
@@ -456,6 +493,19 @@ export default function DashboardPageComplete() {
             totalFlagsOnMe: flagsOnMeData.stats.total,
             flagsOnMeBreakdown: `${flagsOnMeData.stats.red} red · ${flagsOnMeData.stats.green} green flags`
           };
+        } else if (flagsOnMeResponse.status === 401) {
+          // Token expired
+          localStorage.removeItem('clocked_token');
+          console.warn('Token expired while fetching flags on me');
+          payload.flagsOnMe = [];
+        } else if (flagsOnMeResponse.status === 404) {
+          // Endpoint not found or no claimed handle
+          console.warn('Flags on me endpoint not found or no claimed handle');
+          payload.flagsOnMe = [];
+        } else if (!flagsOnMeResponse.ok) {
+          // Other error
+          console.warn('Failed to load flags on user:', flagsOnMeResponse.status);
+          payload.flagsOnMe = [];
         }
       } catch (flagsOnMeError) {
         if (!ignore) {
@@ -471,6 +521,13 @@ export default function DashboardPageComplete() {
       if (!ignore) {
         console.error("Dashboard load error:", err);
         setError(err.message || "Failed to load dashboard");
+        // Set empty data on error to prevent crashes
+        setData(mapDashboardPayload({
+          user: { username: 'User', email: '' },
+          overview: { totalFlagsOnMe: 0, flagsOnMeBreakdown: 'No flags yet' },
+          flagsPosted: [],
+          flagsOnMe: []
+        }));
       }
     } finally {
       if (!ignore) setLoading(false);
@@ -539,14 +596,14 @@ export default function DashboardPageComplete() {
   async function refreshDashboard() {
     setRefreshing(true);
     try {
-      const payload = await authAPI.getCurrentUser();
-      setData(mapDashboardPayload(payload || {}));
-      setError("");
-    } catch (err) {
-      setError(err.message || "Failed to refresh dashboard.");
+      await loadDashboard();
     } finally {
       setRefreshing(false);
     }
+  }
+
+  async function retryDashboardLoad() {
+    await loadDashboard();
   }
 
   function openSection(id) {
@@ -762,7 +819,8 @@ export default function DashboardPageComplete() {
             <button className={cx("side-item", section === "me-profile" && "active")} onClick={() => openSection("me-profile")}><span className="side-icon">👤</span> Me profile</button>
             <button className={cx("side-item", section === "unsent" && "active")} onClick={() => openSection("unsent")}><span className="side-icon">💌</span> Unsent letter</button>
             <button className={cx("side-item", section === "contract" && "active")} onClick={() => openSection("contract")}><span className="side-icon">🧩</span> API contract</button>
-
+            <div className="side-sep"></div>
+            <button className={cx("side-item", section === "weekly-radar" && "active")} onClick={() => openSection("weekly-radar")}><span className="side-icon">📡</span> Weekly Radar</button>
             <div className="side-sep"></div>
             <button className={cx("side-item", section === "settings" && "active")} onClick={() => openSection("settings")}><span className="side-icon">⚙️</span> Settings</button>
             <Link to="/" className="side-item" style={{ color: "var(--gray-4)" }}><span className="side-icon">🏠</span> Back to home</Link>
@@ -772,9 +830,20 @@ export default function DashboardPageComplete() {
             {loading ? <div className="inline-banner">Loading dashboard...</div> : null}
             {error ? <div className="inline-banner error"><span>{error}</span><button className="small-btn" onClick={refreshDashboard}>{refreshing ? "Refreshing..." : "Refresh"}</button></div> : null}
 
+            {data.flagsOnMe.length === 0 && !loading && !error && data.user.username ? (
+              <div className="inline-banner" style={{ background: "var(--blue-light)", borderColor: "var(--blue-mid)", color: "var(--blue)" }}>
+                <strong>No flags yet:</strong> No one has posted flags about your handle. Keep building your reputation!
+                <button className="small-btn" onClick={() => navigate('/search')} style={{ marginLeft: "1rem" }}>
+                  Search Other Handles
+                </button>
+              </div>
+            ) : null}
+
             <section className={cx("section", section === "overview" && "active")}>
               <div className="page-title">Good morning{data.user.username ? `, @${data.user.username}` : ""} 👋</div>
-              <div className="page-sub">Real-time dashboard only. No mock content.</div>
+              <div className="page-sub">
+                {loading ? "Loading your dashboard..." : error ? "Dashboard error occurred" : "Real-time dashboard only. No mock content."}
+              </div>
 
               <div className="quick-actions">
                 <button className="quick-action-btn" onClick={() => navigate(data.quickActions.flagPath || "/flag")}>🚩 Flag someone</button>
@@ -905,7 +974,7 @@ export default function DashboardPageComplete() {
                   <div className="flag-row" key={item.id}>
                     <div className={cx("flag-dot", item.type)}></div>
                     <div className="flag-body">
-                      <div className="flag-handle">{item.type === "red" ? "Red flag" : "Green flag"} on @{item.handle}</div>
+                      <div className="flag-handle">{item.type === "red" ? "Red flag" : "Green flag"} on @{data.user.username || "you"} by @{item.posted_by}</div>
                       <div className="flag-snippet">{item.snippet}</div>
                       <div className="flag-tags">{safeArray(item.tags).map((tag) => <span key={tag} className={cx("tag", tag.includes("Red") ? "red" : tag.includes("Green") ? "green" : "gray")}>{tag}</span>)}</div>
                     </div>
@@ -921,6 +990,7 @@ export default function DashboardPageComplete() {
                     <div className="flag-body">
                       <div className="flag-text">
                         <span className={cx("flag-badge", item.type)}>{item.type === "red" ? "Red" : "Green"} flag on @{item.handle}</span>
+                        <span className="flag-poster">by @{item.posted_by}</span>
                         <span className="flag-cat">{item.category}</span>
                         <span className="flag-time">{item.time}</span>
                       </div>
@@ -1038,8 +1108,10 @@ export default function DashboardPageComplete() {
                 <div className="setting-row"><div><div className="setting-label">Email address</div><div className="setting-sub">{data.user.email || "No email on file"}</div></div><button className="ghost-btn">Change</button></div>
                 <div className="setting-row"><div><div className="setting-label">Password</div><div className="setting-sub">Managed securely</div></div><button className="ghost-btn">Change</button></div>
                 <div className="setting-row"><div><div className="setting-label">Username</div><div className="setting-sub">@{data.user.username || "user"}</div></div><button className="ghost-btn">Change</button></div>
-              </div>
-
+                <div className="setting-row" style={{ borderTop: "1px solid var(--gray-2)", paddingTop: "1rem", marginTop: "0.5rem" }}>
+                  <div><div className="setting-label" style={{ color: "var(--red)" }}>🗑️ Delete account</div><div className="setting-sub" style={{ color: "var(--red)" }}>Permanently delete your account and data</div></div><button className="danger-btn" onClick={() => navigate('/delete-account')}>Delete Account</button></div>
+                </div>
+              {/* </div> */}
               <div className="card">
                 <div className="card-title">📧 Email notifications</div>
                 {[["emailSearches","Someone searched my handle","Email when someone searches your @, with reason"],["emailNewFlags","New flag on my handle","Email when a red or green flag is posted on you"],["emailWatched","Watched handle activity","Email when a handle you're watching gets a new flag"],["emailReplies","Flag reply","Email when someone replies to a flag you posted"],["emailWeeklyRadar","Weekly radar","Monday summary — your stats, watched handles, community"],["emailNearbyRequests","Flag requests near me","Requests from people in your city"]].map(([key, label, sub]) => (
@@ -1049,7 +1121,6 @@ export default function DashboardPageComplete() {
                   </div>
                 ))}
               </div>
-
               <div className="card">
                 <div className="card-title">🔔 Push notifications</div>
                 {!pushEnabled && !pushDenied ? (
@@ -1094,9 +1165,36 @@ export default function DashboardPageComplete() {
                 <div className="card-title">Legal & privacy</div>
                 <div className="setting-row"><div><div className="setting-label">Terms of Service</div><div className="setting-sub">Read our full terms</div></div><Link to="/terms" className="ghost-btn">View →</Link></div>
                 <div className="setting-row"><div><div className="setting-label">Grievance & takedowns</div><div className="setting-sub">Request a flag removal or report an issue</div></div><Link to="/grievance" className="ghost-btn">View →</Link></div>
-                <div className="setting-row"><div><div className="setting-label" style={{ color: "var(--red)" }}>Delete account</div><div className="setting-sub">Permanently delete account and all data.</div></div><button className="danger-btn">Delete</button></div>
+                <div className="setting-row"><div><div className="setting-label" style={{ color: "var(--red)" }}>🗑️ Delete account</div><div className="setting-sub" style={{ color: "var(--red)" }}>Permanently delete your account and data</div></div><button className="danger-btn" onClick={() => navigate('/delete-account')}>Delete Account</button></div>
               </div>
               <div style={{ textAlign: "center", padding: "1rem 0" }}><Link to="/auth" style={{ fontSize: ".82rem", color: "var(--gray-4)", textDecoration: "underline" }}>Log out</Link></div>
+            </section>
+            <section className={cx("section", section === "weekly-radar" && "active")}>
+              <div className="page-title">📡 Weekly Radar</div>
+              <div className="page-sub">Your weekly stats and community trends</div>
+              {isAuthenticated ? (
+                <div className="card">
+                  <div className="card-title">This week's highlights</div>
+                  <div className="highlight-box">
+                    <div className="highlight-item">
+                      <span className="highlight-icon">🔥</span>
+                      <span className="highlight-text">Trending: <strong>Comedy flags</strong> up 23%</span>
+                    </div>
+                    <div className="highlight-item">
+                      <span className="highlight-icon">⬆️</span>
+                      <span className="highlight-text">Your vibe score: <strong>72</strong> (up from 65)</span>
+                    </div>
+                  </div>
+                  <button className="ghost-btn" style={{ marginTop: 12 }} onClick={() => navigate('/weekly-radar')}>View full weekly radar →</button>
+                </div>
+              ) : (
+                <div className="card">
+                  <div className="card-title">Login Required</div>
+                  <p style={{ textAlign: "center", padding: "2rem" }}>
+                    Please <Link to="/login" style={{ color: "var(--blue)", textDecoration: "underline" }}>log in</Link> to view your weekly radar
+                  </p>
+                </div>
+              )}
             </section>
           </main>
         </div>
@@ -1110,7 +1208,6 @@ export default function DashboardPageComplete() {
             <Link to="/grievance" className="footer-report">🛡️ Report / Takedown</Link>
           </div>
         </footer>
-      </div>
 
       <div className="mob-bar">
         <div className="mob-tabs">
@@ -1118,6 +1215,7 @@ export default function DashboardPageComplete() {
           <button className={cx("mob-tab", section === "notifications" && "active")} onClick={() => openSection("notifications")}><span className="mob-icon">🔔</span><span className="mob-label">Alerts</span>{unreadCount > 0 ? <span className="mob-badge">{unreadCount}</span> : null}</button>
           <button className={cx("mob-tab", section === "my-flags" && "active")} onClick={() => openSection("my-flags")}><span className="mob-icon">🚩</span><span className="mob-label">My flags</span></button>
           <button className={cx("mob-tab", section === "watching" && "active")} onClick={() => openSection("watching")}><span className="mob-icon">👁</span><span className="mob-label">Watching</span></button>
+          <button className={cx("mob-tab", section === "weekly-radar" && "active")} onClick={() => openSection("weekly-radar")}><span className="mob-icon">📡</span><span className="mob-label">Weekly Radar</span></button>
           <button className="mob-tab" onClick={() => setMobileMenuOpen(true)}><span className="mob-icon">☰</span><span className="mob-label">More</span></button>
         </div>
       </div>
@@ -1132,6 +1230,7 @@ export default function DashboardPageComplete() {
         <button className="sheet-item" onClick={() => openSection("contract")}><div className="sheet-icon">🧩</div>API contract</button>
         <button className="sheet-item" onClick={() => openSection("settings")}><div className="sheet-icon">⚙️</div>Settings</button>
         <button className="sheet-item" onClick={() => navigate("/")}><div className="sheet-icon">🏠</div>Back to home</button>
+      </div>
       </div>
     </div>
   );

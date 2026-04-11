@@ -24,6 +24,7 @@ import AdminAccessControlPage from "../components/AdminAccessControlPage";
 import AdminWatchlistSubscriptionsPage from "../components/AdminWatchlistSubscriptionsPage";
 import AdminActivityPage from "../components/AdminActivityPage";
 import AdminOperationsPage from "../components/AdminOperationsPage";
+import AdminGrievanceDashboard from "./AdminGrievanceDashboard";
 
 const ADMIN_ROUTES = [
   { key: "dashboard", label: "Dashboard", icon: "📊" },
@@ -32,6 +33,7 @@ const ADMIN_ROUTES = [
   { key: "handles", label: "Handles", icon: "🏷️" },
   { key: "flags", label: "Flags", icon: "🚩" },
   { key: "flag-replies", label: "Comments/Replies", icon: "💬" },
+  { key: "grievances", label: "Grievances", icon: "⚖️" },
   { key: "search-logs", label: "Search Logs", icon: "🔍" },
   { key: "watchlists", label: "Watchlists", icon: "👁️" },
   { key: "watchlist-subs", label: "Watchlist Subs", icon: "📋" },
@@ -510,6 +512,10 @@ export default function ClockedAdminFoundation() {
 
           {activeRoute === "flags" ? (
             <AdminFlagsPage />
+          ) : null}
+
+          {activeRoute === "grievances" ? (
+            <AdminGrievanceDashboard />
           ) : null}
 
           {activeRoute === "search-logs" ? (

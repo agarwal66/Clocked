@@ -10,6 +10,11 @@ import SearchPage from './pages/SearchPage';
 import VibeCardPage from './pages/VibeCardPage';
 import FlagPage from './pages/FlagPage';
 import FlagMePage from './pages/FlagMePage';
+import GrievancePage from './pages/GrievancePage';
+import AccountDeletionPage from './pages/AccountDeletionPage';
+import HandleClaimedPage from './pages/HandleClaimedPage';
+import WeeklyRadarPage from './pages/WeeklyRadarPage';
+import AdminGrievanceDashboard from './pages/AdminGrievanceDashboard';
 import './App.css';
 
 // Protected Route Component
@@ -32,6 +37,10 @@ function AppRoutes() {
       <Route path="/search" element={<SearchPage />} />
       <Route path="/flag" element={<FlagPage />} />
       <Route path="/flagme" element={<FlagMePage />} />
+      <Route path="/grievance" element={<GrievancePage />} />
+      <Route path="/handle-claimed" element={<HandleClaimedPage />} />
+      <Route path="/delete-account" element={<AccountDeletionPage />} />
+      <Route path="/weekly-radar" element={<WeeklyRadarPage />} />
       <Route path="/@:handle" element={<VibeCardPage />} />
       <Route path="/vibe-card/:handle" element={<VibeCardPage />} />
       <Route path="/login" element={
