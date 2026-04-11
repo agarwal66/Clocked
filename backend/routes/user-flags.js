@@ -5,7 +5,7 @@ const Flag = require('../models/Flag');
 const Handle = require('../models/Handle');
 
 // GET /api/user/flags - Get flags posted by the authenticated user
-router.get('/', authenticate, async (req, res) => {
+router.get('/flags', authenticate, async (req, res) => {
   try {
     const userId = req.user.id;
     console.log(`Fetching flags posted by user: ${userId}`);
@@ -19,7 +19,19 @@ router.get('/', authenticate, async (req, res) => {
     // Get handle information for each flag
     const flagsWithHandles = await Promise.all(
       flags.map(async (flag) => {
+        console.log('Processing flag:', {
+          flag_id: flag._id,
+          handle_id: flag.handle_id,
+          flag_type: flag.flag_type
+        });
+        
         const handle = await Handle.findById(flag.handle_id).lean();
+        console.log('Found handle:', handle ? {
+          _id: handle._id,
+          instagram_handle: handle.instagram_handle,
+          city: handle.city
+        } : 'null');
+        
         return {
           id: flag._id,
           type: flag.flag_type,

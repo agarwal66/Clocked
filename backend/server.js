@@ -10,6 +10,7 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const adminRoutes = require('./routes/admin');
 const adminProtectedRoutes = require('./routes/adminProtected');
+const adminGrievanceRoutes = require('./routes/admin-grievances');
 const dashboardRoutes = require('./routes/dashboard');
 const searchRoutes = require('./routes/search');
 const flagRoutes = require('./routes/flags');
@@ -24,6 +25,10 @@ const accessControlRoutes = require('./routes/accessControl');
 const usernameCheckRoutes = require('./routes/username-check');
 const vibeCardRoutes = require('./routes/vibe-card');
 const userFlagsRoutes = require('./routes/user-flags');
+const grievanceRoutes = require('./routes/grievance');
+const accountDeletionRoutes = require('./routes/account-deletion');
+const handleClaimedRoutes = require('./routes/handle-claimed');
+const weeklyRadarRoutes = require('./routes/weekly-radar');
 
 const app = express();
 
@@ -42,9 +47,14 @@ app.use(helmet({
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+  origin: [
+    'http://localhost:3001',
+    'http://localhost:3000',
+    'http://127.0.0.1:3001',
+    'http://127.0.0.1:3000'
+  ],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
@@ -83,8 +93,13 @@ app.use('/api/notifications', notificationRoutes); // NEW: Notification system r
 app.use('/api/admin/search-logs', searchLogsRoutes); // NEW: Search logs routes
 app.use('/api/watchlists', watchlistsRoutes); // NEW: Watchlist system routes
 app.use('/api/admin/access', accessControlRoutes); // NEW: Access control routes
+app.use('/api/admin/grievances', adminGrievanceRoutes); // NEW: Admin grievance routes
 app.use('/api/vibe-card', vibeCardRoutes); // NEW: Vibe card routes
 app.use('/api/user', userFlagsRoutes); // NEW: User flags routes
+app.use('/api/grievance', grievanceRoutes); // NEW: Grievance routes
+app.use('/api/auth/delete-account', accountDeletionRoutes); // NEW: Account deletion routes
+app.use('/api/handles', handleClaimedRoutes); // NEW: Handle claimed routes
+app.use('/api/radar', weeklyRadarRoutes); // NEW: Weekly radar routes
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -102,6 +117,7 @@ app.use('*', (req, res) => {
     path: req.originalUrl
   });
 });
+
 
 // Global error handler
 app.use((error, req, res, next) => {

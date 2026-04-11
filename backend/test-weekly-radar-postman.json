@@ -1,0 +1,57 @@
+{
+  "info": {
+    "name": "Weekly Radar API Test",
+    "description": "Test the weekly radar endpoint with mock data",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Get Weekly Radar Data",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/radar/weekly",
+          "host": ["{{baseUrl}}"]
+        },
+        "description": "Get weekly radar statistics and trends"
+      },
+      "response": [
+        {
+          "name": "Success Response",
+          "originalRequest": "Get Weekly Radar Data",
+          "status": "OK",
+          "code": 200,
+          "body": {
+            "week": "2026-W15",
+            "handle": "testuser",
+            "score": { "from": 65, "to": 72 },
+            "stats": { "searches": 42, "red": 8, "green": 12 },
+            "watch": [
+              {"handle": "user1", "meta": "Friend"},
+              {"handle": "user2", "meta": "Colleague"}
+            ],
+            "community": { "red": 156, "green": 89, "searches": 1240, "users": 45 },
+            "topFlags": [
+              {"handle": "trendinguser", "category": "Drama", "views": 2340},
+              {"handle": "viraluser", "category": "Love", "views": 1890},
+              {"handle": "funnyuser", "category": "Comedy", "views": 1567}
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5004/api",
+      "description": "Base URL for the API"
+    }
+  ]
+}

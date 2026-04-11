@@ -1,0 +1,93 @@
+{
+  "info": {
+    "name": "Grievance System Test",
+    "description": "Complete test of grievance submission and admin management",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Submit Grievance (Frontend)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"handle\": \"@postmanuser123\",\n  \"name\": \"Postman Test User\",\n  \"email\": \"postman@example.com\",\n  \"type\": \"Flag Removal Request\",\n  \"isSubject\": \"Inappropriate Content\",\n  \"description\": \"This is a test grievance submitted via Postman to verify the frontend-backend integration is working properly. Please remove the flag on my profile as it was posted maliciously and without proper justification.\",\n  \"contactPreference\": \"email\",\n  \"contentUrl\": \"https://instagram.com/postmanuser123\",\n  \"declarations\": [true, true, true]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/grievance"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "2. Get All Grievances (Admin)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/admin/grievances"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "3. Update Grievance Status (Admin)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"reviewed\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/admin/grievances/{{grievanceId}}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "4. Verify Status Update",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/admin/grievances"
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5004/api",
+      "type": "string"
+    },
+    {
+      "key": "grievanceId",
+      "value": "69d8933d92167f48e6f805ad",
+      "type": "string"
+    }
+  ]
+}
