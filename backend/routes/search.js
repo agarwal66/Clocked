@@ -75,6 +75,50 @@ async function calculateRealStats(handleId) {
   }
 }
 
+// GET /api/search/suggestions
+router.get('/suggestions', async (req, res) => {
+  try {
+    const { q } = req.query;
+    
+    if (!q || q.length < 2) {
+      return res.json({ items: [] });
+    }
+    
+    // Search for handles that match the query (case-insensitive)
+    const handles = await Handle.find({
+      instagram_handle: { 
+        $regex: q.toLowerCase(), 
+        $options: 'i' 
+      }
+    })
+    .limit(10)
+    .lean();
+    
+    // Calculate stats for each handle
+    const items = await Promise.all(
+      handles.map(async (handle) => {
+        const stats = await calculateRealStats(handle._id);
+        const score = Math.round((stats.greenFlagCount / Math.max(stats.greenFlagCount + stats.redFlagCount, 1)) * 100);
+        const good = score > 55;
+        
+        return {
+          id: handle._id,
+          handle: handle.instagram_handle,
+          red: stats.redFlagCount,
+          green: stats.greenFlagCount,
+          score: score,
+          color: good ? "#1A9E5F" : "#E2353A"
+        };
+      })
+    );
+    
+    res.json({ items });
+  } catch (error) {
+    console.error('Search suggestions error:', error);
+    res.json({ items: [] });
+  }
+});
+
 // GET /api/search/:handle
 router.get('/:handle', async (req, res) => {
   try {

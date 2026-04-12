@@ -27,6 +27,7 @@ export default function WeeklyRadarPage() {
     (async () => {
       try {
         const res = await api(`${process.env.REACT_APP_API_BASE_URL}/radar/weekly`);
+        
         setData(res);
       } catch {
         alert("Failed to load radar");
@@ -84,6 +85,53 @@ export default function WeeklyRadarPage() {
               Vibe score {data.score.to >= data.score.from ? "up" : "down"}
             </div>
           </div>
+
+          {/* User's actual flags for this week */}
+          {data.userFlags && data.userFlags.length > 0 && (
+            <div style={{ marginTop: 20 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10, color: '#333' }}>
+                Your flags this week ({data.userFlags.length})
+              </div>
+              {data.userFlags.map((flag, i) => (
+                <div key={i} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '8px 12px',
+                  marginBottom: '6px',
+                  backgroundColor: flag.flag_type === 'red' ? '#FFF0F0' : '#F0FFF8',
+                  border: `1px solid ${flag.flag_type === 'red' ? '#FFBDBE' : '#A3E6C8'}`,
+                  borderRadius: '6px'
+                }}>
+                  <div style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: flag.flag_type === 'red' ? '#E2353A' : '#1A9E5F',
+                    marginRight: '10px'
+                  }}></div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, color: '#666' }}>
+                      {flag.flag_type === 'red' ? 'Red' : 'Green'} flag
+                    </div>
+                    <div style={{ fontSize: 11, color: '#999' }}>
+                      {new Date(flag.created_at).toLocaleDateString()} at {new Date(flag.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    </div>
+                  </div>
+                  {flag.relationship && (
+                    <div style={{
+                      fontSize: 11,
+                      color: '#666',
+                      backgroundColor: '#f0f0f0',
+                      padding: '2px 6px',
+                      borderRadius: '4px'
+                    }}>
+                      {flag.relationship}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
 
         {/* WATCHED */}

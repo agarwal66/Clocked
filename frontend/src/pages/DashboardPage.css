@@ -4,7 +4,51 @@
   font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-/* Flag poster styling */
+/* Handle claim feature */
+.claim-input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: #F2F1EC;
+  border-radius: 8px;
+  margin-top: 8px;
+}
+
+.claim-at {
+  color: #666;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.claim-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #E5E4DE;
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.claim-input:focus {
+  border-color: #0C0C0A;
+}
+
+.claim-search-btn {
+  padding: 8px 16px;
+  background: #0C0C0A;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.claim-search-btn:hover {
+  background: #1A1F2E;
+}
 .flag-poster {
   font-size: 0.75rem;
   color: #666;

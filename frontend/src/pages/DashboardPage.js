@@ -7,6 +7,21 @@ function cx(...parts) {
   return parts.filter(Boolean).join(" ");
 }
 
+// Time-dependent greeting function
+const getTimeBasedGreeting = () => {
+  const hour = new Date().getHours();
+  
+  if (hour >= 5 && hour < 12) {
+    return "{getTimeBasedGreeting()}";
+  } else if (hour >= 12 && hour < 17) {
+    return "Good afternoon";
+  } else if (hour >= 17 && hour < 21) {
+    return "Good evening";
+  } else {
+    return "Good night";
+  }
+};
+
 const DASHBOARD_CONTRACT = {
   endpoint: "GET /api/dashboard",
   shape: {
@@ -840,9 +855,9 @@ export default function DashboardPageComplete() {
             ) : null}
 
             <section className={cx("section", section === "overview" && "active")}>
-              <div className="page-title">Good morning{data.user.username ? `, @${data.user.username}` : ""} 👋</div>
+              <div className="page-title">{getTimeBasedGreeting()}{data.user.username ? `, @${data.user.username}` : ""} 👋</div>
               <div className="page-sub">
-                {loading ? "Loading your dashboard..." : error ? "Dashboard error occurred" : "Real-time dashboard only. No mock content."}
+                {loading ? "Loading your dashboard..." : error ? "Dashboard error occurred" : ""}
               </div>
 
               <div className="quick-actions">

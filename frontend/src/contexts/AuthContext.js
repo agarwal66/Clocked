@@ -84,31 +84,33 @@ export const AuthProvider = ({ children }) => {
       
       if (token && !isLoginPage && !preventAutoLogin) {
         try {
-          console.log('Auto-login: Found token, not on login page, logging in...');
-          // const response = await authAPI.getCurrentUser();
-          // dispatch({ type: 'SET_USER', payload: response.user });
-       const storedUser = localStorage.getItem("clocked_user");
-
-if (storedUser) {
-  dispatch({
-    type: 'SET_USER',
-    payload: JSON.parse(storedUser),
-  });
-}
+          console.log('Auto-login: Found token, validating and logging in...');
+          
+          // Validate token and get fresh user data
+          const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/auth/me`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (response.ok) {
+            const userData = await response.json();
+            dispatch({
+              type: 'LOGIN_SUCCESS',
+              payload: { user: userData.user, token }
+            });
+            // Store fresh user data
+            localStorage.setItem('clocked_user', JSON.stringify(userData.user));
+          } else {
+            // Token is invalid, clear it
+            throw new Error('Token validation failed');
+          }
         } catch (error) {
-          // Token is invalid, clear it
-          console.log('Auto-login: Token invalid, clearing...');
+          console.log('Token validation failed, clearing auth data');
           localStorage.removeItem('clocked_token');
           localStorage.removeItem('clocked_user');
-        }
-      } else {
-        if (preventAutoLogin) {
-          console.log('Auto-login: Prevented by user action');
-          sessionStorage.removeItem('preventAutoLogin');
-        } else if (isLoginPage) {
-          console.log('Auto-login: On login page, skipping...');
-        } else {
-          console.log('Auto-login: No token found, not logging in');
+          dispatch({ type: 'LOGOUT' });
         }
       }
     };

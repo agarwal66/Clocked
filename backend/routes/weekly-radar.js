@@ -20,12 +20,18 @@ function formatRelativeTime(date) {
 // GET /api/radar/weekly - Get weekly radar data
 router.get('/weekly', async (req, res) => {
   try {
-    console.log('Weekly radar request received');
     
     // Get current week info
     const now = new Date();
-    const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
-    const weekEnd = new Date(now.setDate(now.getDate() - now.getDay() + 6));
+    const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - currentDay); // Go back to Sunday
+    weekStart.setHours(0, 0, 0, 0);
+    
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6); // Go to Saturday
+    weekEnd.setHours(23, 59, 59, 999);
+    
     const weekNumber = Math.ceil((now - new Date(now.getFullYear(), 0, 1)) / 604800000);
     const weekString = `${now.getFullYear()}-W${weekNumber}`;
     
@@ -33,6 +39,7 @@ router.get('/weekly', async (req, res) => {
     let userHandle = null;
     let userStats = { searches: 0, red: 0, green: 0 };
     let userScore = { from: 50, to: 50 };
+    let userFlags = []; // Initialize userFlags array
     let decoded = null;
     
     // Try to get authenticated user info
@@ -42,22 +49,30 @@ router.get('/weekly', async (req, res) => {
         const jwt = require('jsonwebtoken');
         decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
         
-        // Find user's claimed handle
+        // Find user's claimed handle (convert string ID to ObjectId)
+        const ObjectId = require('mongoose').Types.ObjectId;
         const userHandleDoc = await mongoose.connection.db.collection('handles')
-          .findOne({ claimed_by_user_id: decoded.id });
+          .findOne({ claimed_by_user_id: new ObjectId(decoded.id) });
         
         if (userHandleDoc) {
           userHandle = userHandleDoc.instagram_handle;
           
           // Get user's stats for this week
-          const userFlags = await mongoose.connection.db.collection('flags')
+         userFlags = await mongoose.connection.db.collection('flags')
             .find({ 
               handle_id: userHandleDoc._id,
               created_at: { $gte: weekStart, $lte: weekEnd }
             })
-            .toArray();
+            .toArray(); 
           
-          userStats.searches = Math.floor(Math.random() * 20) + 5; // Mock searches for now
+          // Get actual search count for user's handle this week
+          const handleSearches = await mongoose.connection.db.collection('search_logs')
+            .find({ 
+              searched_handle: userHandle,
+              created_at: { $gte: weekStart, $lte: weekEnd }
+            })
+            .toArray();
+          userStats.searches = handleSearches.length;
           userStats.red = userFlags.filter(f => f.flag_type === 'red').length;
           userStats.green = userFlags.filter(f => f.flag_type === 'green').length;
           
@@ -78,36 +93,70 @@ router.get('/weekly', async (req, res) => {
       .find({ created_at: { $gte: weekStart, $lte: weekEnd } })
       .toArray();
     
+    // Get actual community searches this week
+    const communitySearches = await mongoose.connection.db.collection('search_logs')
+      .find({ created_at: { $gte: weekStart, $lte: weekEnd } })
+      .toArray();
+    
     const communityStats = {
       red: allFlags.filter(f => f.flag_type === 'red').length,
       green: allFlags.filter(f => f.flag_type === 'green').length,
-      searches: Math.floor(Math.random() * 500) + 200, // Mock searches
+      searches: communitySearches.length,
       users: await mongoose.connection.db.collection('users').countDocuments()
     };
     
-    // Get top trending flags this week
+    // Get top trending flags this week (only for handles that exist in database)
+    const existingHandles = await mongoose.connection.db.collection('handles')
+      .find().toArray();
+    const existingHandleNames = new Set(existingHandles.map(h => h.instagram_handle));
+    
     const flagCounts = {};
     allFlags.forEach(flag => {
       const key = flag.handle_instagram_handle || flag.handle_username;
-      flagCounts[key] = (flagCounts[key] || 0) + 1;
+      // Only count flags for handles that exist in the database
+      if (existingHandleNames.has(key)) {
+        flagCounts[key] = (flagCounts[key] || 0) + 1;
+      }
     });
     
-    const topFlags = Object.entries(flagCounts)
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 5)
-      .map(([handle, count]) => ({
-        handle,
-        category: 'Trending',
-        views: count * 100 // Mock view count
-      }));
+    const topFlags = await Promise.all(
+      Object.entries(flagCounts)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 5)
+        .map(async ([handle, count]) => {
+          // Get actual view counts from handle stats
+          const handleDoc = await mongoose.connection.db.collection('handles')
+            .findOne({ instagram_handle: handle });
+          
+          // If handle doesn't exist in handles collection, use search count as views
+          let views = count * 10;
+          if (handleDoc && handleDoc.stats) {
+            views = handleDoc.stats.know_count || handleDoc.stats.search_count || count * 10;
+          } else {
+            // Try to get search count for this handle
+            const handleSearches = await mongoose.connection.db.collection('search_logs')
+              .countDocuments({ 
+                searched_handle: handle,
+                created_at: { $gte: weekStart, $lte: weekEnd }
+              });
+            views = Math.max(handleSearches * 5, count * 10);
+          }
+          
+          return {
+            handle,
+            category: 'Trending',
+            views
+          };
+        })
+    );
     
     // Get user's watch list (dynamic)
     let watch = [];
     if (token && decoded) {
       try {
         // Get watches for the authenticated user
-        const userWatches = await mongoose.connection.db.collection('watches')
-          .find({ user_id: decoded.id })
+        const userWatches = await mongoose.connection.db.collection('watchlists')
+          .find({ user_id: decoded.id, active: true })
           .toArray();
         
         if (userWatches.length > 0) {
@@ -118,9 +167,12 @@ router.get('/weekly', async (req, res) => {
                 .findOne({ _id: watchItem.handle_id });
               
               if (handle) {
-                // Get flag counts for this handle
+                // Get flag counts for this handle (this week)
                 const handleFlags = await mongoose.connection.db.collection('flags')
-                  .find({ handle_id: handle._id })
+                  .find({ 
+                    handle_id: handle._id,
+                    created_at: { $gte: weekStart, $lte: weekEnd }
+                  })
                   .toArray();
                 
                 const redCount = handleFlags.filter(f => f.flag_type === 'red').length;
@@ -157,6 +209,7 @@ router.get('/weekly', async (req, res) => {
       handle: userHandle || "anonymous",
       score: userScore,
       stats: userStats,
+      userFlags: userFlags, // Add user's actual flags for this week
       watch,
       community: communityStats,
       topFlags,

@@ -341,7 +341,7 @@ useEffect(() => {
       } finally {
         setSuggestionsLoading(false);
       }
-    }, 220);
+    }, 150);
     return () => {
       if (suggestTimerRef.current) window.clearTimeout(suggestTimerRef.current);
     };
