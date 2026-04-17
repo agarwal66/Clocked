@@ -1,66 +1,197 @@
 const express = require('express');
+const Flag = require('../models/Flag');
+const Handle = require('../models/Handle');
+const SearchLog = require('../models/SearchLog');
+
 const router = express.Router();
 
-// GET /api/home - Load homepage data
+function mapRelationshipToFrontend(backendRelationship) {
+  const mapping = {
+    ex: '💔 Dated',
+    current: '❤️ Current',
+    former: '🕰️ Former',
+    friend: '🤝 Friends',
+    family: '🏠 Family',
+    colleague: '💼 Work/business',
+    acquaintance: '👋 Acquaintance',
+    stranger: '☕ Went on a date',
+  };
+
+  return mapping[backendRelationship] || '👋 Acquaintance';
+}
+
+function mapTimeframeToFrontend(backendTimeframe) {
+  const mapping = {
+    last_week: '📅 This week',
+    last_month: '📅 This month',
+    last_6_months: '📅 1–6 months ago',
+    last_year: '📅 Last year',
+    more_than_year: '📅 Over a year ago',
+  };
+
+  return mapping[backendTimeframe] || '📅 Recently';
+}
+
+function formatRelativeTime(dateValue) {
+  if (!dateValue) return 'recently';
+
+  const diffMs = Date.now() - new Date(dateValue).getTime();
+  const diffHours = Math.max(1, Math.round(diffMs / (1000 * 60 * 60)));
+
+  if (diffHours < 24) return `${diffHours}h ago`;
+
+  const diffDays = Math.round(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  const diffWeeks = Math.round(diffDays / 7);
+  if (diffWeeks < 5) return `${diffWeeks}w ago`;
+
+  const diffMonths = Math.round(diffDays / 30);
+  return `${Math.max(1, diffMonths)}mo ago`;
+}
+
+
+function isRenderableHomepageFlag(flag) {
+  return Boolean(
+    (flag.handle_username || flag.handle_instagram_handle || flag.handle_id?.instagram_handle) &&
+    flag.flag_type &&
+    flag.category_name &&
+    flag.comment &&
+    flag.relationship &&
+    flag.timeframe
+  );
+}
+
+const staticHomeContent = {
+  slides: [
+    { id: 1, imageUrl: 'https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?w=1600&auto=format&fit=crop&q=80' },
+    { id: 2, imageUrl: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=1600&auto=format&fit=crop&q=80' },
+    { id: 3, imageUrl: 'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=1600&auto=format&fit=crop&q=80' },
+    { id: 4, imageUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=1600&auto=format&fit=crop&q=80' },
+  ],
+  hero: {
+    badge: "World's first community-powered handle intelligence platform",
+    title: 'Know the vibe before you invest.',
+    subtitle: 'Search any Instagram handle. See real community flags. Drop your own receipts. Anonymous or not — your call.',
+  },
+  reasons: ['👀 Going on a date', '💍 Shaadi', '🔥 Friends with Benefits', '🛍️ Buying from them', '💼 Work collab', '🤝 Just curious'],
+  trustPoints: ['See red and green flags', 'Post anonymously or publicly', 'View both sides when available'],
+  howItWorks: [
+    { id: 1, title: 'Search any handle', text: "Choose why you're looking them up — date, shaadi, FWB, work or just curious." },
+    { id: 2, title: 'See community receipts', text: 'Real flags weighted by how well people actually knew them.' },
+    { id: 3, title: 'Drop your own flag', text: 'Post anonymously or with your handle. Your choice, always.' },
+  ],
+  flagMe: {
+    title: 'Flag me up 🚩🟢',
+    subtitle: 'Share your handle. Let the community check your vibe. Brave souls only.',
+    ctaLabel: 'Generate my card →',
+  },
+};
+
 router.get('/', async (req, res) => {
   try {
-    console.log('🏠 Backend: Loading homepage data...');
+    const [searchCount, flagCounts, recentFlagsRaw, trendingRaw] = await Promise.all([
+      SearchLog.countDocuments(),
+      Flag.aggregate([
+        {
+          $group: {
+            _id: '$flag_type',
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+      Flag.find({
+        visibility: { $ne: 'hidden' },
+        status: 'approved',
+      })
+        .populate('handle_id', 'city instagram_handle')
+        .sort({ created_at: -1 })
+        .limit(12)
+        .lean(),
+      Flag.aggregate([
+        {
+          $match: {
+            visibility: { $ne: 'hidden' },
+            status: 'approved',
+            category_name: { $nin: [null, ''] },
+            comment: { $nin: [null, ''] },
+            relationship: { $nin: [null, ''] },
+            timeframe: { $nin: [null, ''] },
+          },
+        },
+        {
+          $group: {
+            _id: '$handle_id',
+            red: { $sum: { $cond: [{ $eq: ['$flag_type', 'red'] }, 1, 0] } },
+            green: { $sum: { $cond: [{ $eq: ['$flag_type', 'green'] }, 1, 0] } },
+            total: { $sum: 1 },
+            latestFlagAt: { $max: '$created_at' },
+          },
+        },
+        { $sort: { total: -1, latestFlagAt: -1 } },
+        { $limit: 5 },
+      ]),
+    ]);
+
+    const countsByType = flagCounts.reduce((acc, item) => {
+      acc[item._id] = item.count;
+      return acc;
+    }, {});
+
+    const trendingHandleIds = trendingRaw.map((item) => item._id).filter(Boolean);
+    const trendingHandles = trendingHandleIds.length
+      ? await Handle.find({ _id: { $in: trendingHandleIds } }).select('instagram_handle').lean()
+      : [];
+
+    const trendingHandleMap = new Map(
+      trendingHandles.map((handle) => [String(handle._id), handle])
+    );
+
+    const recentFlags = recentFlagsRaw
+      .filter(isRenderableHomepageFlag)
+      .slice(0, 6)
+      .map((flag) => ({
+        id: flag._id,
+        type: flag.flag_type,
+        handle: flag.handle_username || flag.handle_instagram_handle || flag.handle_id?.instagram_handle || 'unknown',
+        category: flag.category_name,
+        anonymous: flag.identity === 'anonymous',
+        comment: flag.comment,
+        relation: mapRelationshipToFrontend(flag.relationship),
+        timeframe: mapTimeframeToFrontend(flag.timeframe),
+        locationLabel: flag.handle_id?.city ? `Location: ${flag.handle_id.city}` : 'Location: Unknown',
+        postedAtLabel: formatRelativeTime(flag.created_at),
+      }));
     
-    // Mock data for now - replace with real data later
-    const homeData = {
-      slides: [
-        { id: 1, imageUrl: "https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?w=1600&auto=format&fit=crop&q=80" },
-        { id: 2, imageUrl: "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=1600&auto=format&fit=crop&q=80" },
-        { id: 3, imageUrl: "https://images.unsplash.com/photo-1543269865-cbf427effbad?w=1600&auto=format&fit=crop&q=80" },
-        { id: 4, imageUrl: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=1600&auto=format&fit=crop&q=80" },
-      ],
-      hero: {
-        badge: "India's first community-powered handle intelligence platform",
-        title: "Know the vibe before you invest.",
-        subtitle: "Search any Instagram handle. See real community flags. Drop your own receipts. Anonymous or not — your call.",
-      },
-      reasons: ["👀 Going on a date", "💍 Shaadi", "🔥 Friends with Benefits", "🛍️ Buying from them", "💼 Work collab", "🤝 Just curious"],
-      stats: { 
-        handlesSearched: 12847, 
-        redFlagsDropped: 4203, 
-        greenFlagsDropped: 8941 
-      },
-      trustPoints: ["See red and green flags", "Post anonymously or publicly", "View both sides when available"],
-      recentFlags: [
-        { id: 1, type: "red", handle: "rohanverma__", category: "Love bombing", anonymous: true, comment: "Came on incredibly strong the first two weeks. Texting all day, future planning, then completely disappeared. Classic pattern.", relation: "💔 Dated", timeframe: "📅 1–6 months ago", locationLabel: "📍 Mumbai", postedAtLabel: "2h ago" },
-        { id: 2, type: "green", handle: "priyasingh.art", category: "Genuine & kind", anonymous: false, comment: "Bought a painting from her. Packed beautifully, delivered on time, responded to every message. 100% recommend her.", relation: "🛍️ Bought/sold", timeframe: "📅 This month", locationLabel: "📍 Delhi", postedAtLabel: "4h ago" },
-        { id: 3, type: "red", handle: "aarav.k", category: "Ghosting", anonymous: true, comment: "After 3 months of talking daily, just stopped replying. No explanation, no closure. Left on read forever.", relation: "☕ Went on a date", timeframe: "📅 Over a year ago", locationLabel: "📍 Bangalore", postedAtLabel: "6h ago" },
-        { id: 4, type: "green", handle: "mehak.designs", category: "Great communicator", anonymous: false, comment: "Worked with her on a freelance project. Always on time, extremely professional. Would hire again without hesitation.", relation: "💼 Work/business", timeframe: "📅 This month", locationLabel: "📍 Pune", postedAtLabel: "8h ago" },
-        { id: 5, type: "red", handle: "the.samarth", category: "Fake / catfish", anonymous: true, comment: "Profile photos don't match the person at all. Met in person and it was a completely different individual. Wasted an evening.", relation: "☕ Went on a date", timeframe: "📅 This week", locationLabel: "📍 Mumbai", postedAtLabel: "12h ago" },
-        { id: 6, type: "green", handle: "neel.photo", category: "Legit & honest", anonymous: false, comment: "Hired for event photography. Delivered everything on time, no hidden charges. Incredibly talented and honest person.", relation: "💼 Work/business", timeframe: "📅 Last month", locationLabel: "📍 Delhi", postedAtLabel: "1d ago" },
-      ],
-      trendingHandles: [
-        { id: 1, handle: "rohanverma__", red: 14, green: 3 },
-        { id: 2, handle: "aarav.k", red: 11, green: 7 },
-        { id: 3, handle: "mehak.designs", red: 2, green: 19 },
-        { id: 4, handle: "the.samarth", red: 9, green: 1 },
-        { id: 5, handle: "priyasingh.art", red: 0, green: 22 },
-      ],
-      howItWorks: [
-        { id: 1, title: "Search any handle", text: "Choose why you're looking them up — date, shaadi, FWB, work or just curious." },
-        { id: 2, title: "See community receipts", text: "Real flags weighted by how well people actually knew them." },
-        { id: 3, title: "Drop your own flag", text: "Post anonymously or with your handle. Your choice, always." },
-      ],
-      flagMe: { 
-        title: "Flag me up 🚩🟢", 
-        subtitle: "Share your handle. Let the community check your vibe. Brave souls only.", 
-        ctaLabel: "Generate my card →" 
-      },
-    };
+    const trendingHandlesPayload = trendingRaw
+      .map((item) => {
+        const handle = trendingHandleMap.get(String(item._id));
+        if (!handle) return null;
 
-    console.log('✅ Backend: Homepage data loaded successfully');
-    res.json(homeData);
+        return {
+          id: item._id,
+          handle: handle.instagram_handle,
+          red: item.red || 0,
+          green: item.green || 0,
+        };
+      })
+      .filter(Boolean);
 
+    res.json({
+      ...staticHomeContent,
+      stats: {
+        handlesSearched: searchCount,
+        redFlagsDropped: countsByType.red || 0,
+        greenFlagsDropped: countsByType.green || 0,
+      },
+      recentFlags,
+      trendingHandles: trendingHandlesPayload,
+    });
   } catch (error) {
     console.error('❌ Backend: Error loading homepage data:', error);
     res.status(500).json({
       error: 'Failed to load homepage data',
-      message: 'Unable to load homepage. Please try again.'
+      message: 'Unable to load homepage. Please try again.',
     });
   }
 });

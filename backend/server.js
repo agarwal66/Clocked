@@ -30,6 +30,7 @@ const accountDeletionRoutes = require('./routes/account-deletion');
 const handleClaimedRoutes = require('./routes/handle-claimed');
 const weeklyRadarRoutes = require('./routes/weekly-radar');
 
+
 const app = express();
 
 // Security middleware

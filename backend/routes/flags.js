@@ -58,12 +58,22 @@ router.post('/', authenticate, async (req, res) => {
       });
     }
 
-    // Find handle by username to get its ObjectId
-    const handle = await Handle.findOne({ instagram_handle: handle_id.toLowerCase().trim() });
+    // Find handle by username to get its ObjectId, or create it if it doesn't exist
+    let handle = await Handle.findOne({ instagram_handle: handle_id.toLowerCase().trim() });
     if (!handle) {
-      return res.status(404).json({
-        error: 'Handle not found',
-        message: 'The specified handle does not exist.'
+      // Create the handle since it doesn't exist
+      handle = new Handle({
+        instagram_handle: handle_id.toLowerCase().trim(),
+        created_at: new Date(),
+        is_suspended: false,
+        claimed_by_user_id: null
+      });
+      
+      await handle.save();
+      console.log('New handle created automatically:', {
+        handle: handle.instagram_handle,
+        id: handle._id,
+        timestamp: new Date().toISOString()
       });
     }
 
@@ -161,12 +171,22 @@ router.get('/:handle_id', authenticate, async (req, res) => {
   try {
     const { handle_id } = req.params;
     
-    // Find handle by username to get its ObjectId
-    const handle = await Handle.findOne({ instagram_handle: handle_id });
+    // Find handle by username to get its ObjectId, or create it if it doesn't exist
+    let handle = await Handle.findOne({ instagram_handle: handle_id.toLowerCase().trim() });
     if (!handle) {
-      return res.status(404).json({
-        error: 'Handle not found',
-        message: 'The specified handle does not exist.'
+      // Create the handle since it doesn't exist
+      handle = new Handle({
+        instagram_handle: handle_id.toLowerCase().trim(),
+        created_at: new Date(),
+        is_suspended: false,
+        claimed_by_user_id: null
+      });
+      
+      await handle.save();
+      console.log('New handle created automatically during GET:', {
+        handle: handle.instagram_handle,
+        id: handle._id,
+        timestamp: new Date().toISOString()
       });
     }
 
@@ -351,5 +371,40 @@ function getCredibilityWeight(relationship) {
   
   return weights[relationship] || 1;
 }
+// POST /api/flags/:flagId/gossip
+router.post('/:flagId/gossip', authenticate, async (req, res) => {
+  try {
+    const { content } = req.body;
 
+    if (!content?.trim()) {
+      return res.status(400).json({ error: 'Gossip content is required.' });
+    }
+    if (content.length > 300) {
+      return res.status(400).json({ error: 'Max 300 characters.' });
+    }
+
+    const flag = await Flag.findById(req.params.flagId);
+    if (!flag) return res.status(404).json({ error: 'Flag not found.' });
+
+    const alreadyGossiped = (flag.gossip || []).some(
+      g => g.user_id && String(g.user_id) === String(req.user._id)
+    );
+    if (alreadyGossiped) {
+      return res.status(409).json({ error: 'You already added gossip to this flag.' });
+    }
+
+    flag.gossip.push({
+      user_id:    req.user._id,
+      username:   req.user.username || 'anonymous',
+      content:    content.trim(),
+      created_at: new Date(),
+    });
+
+    await flag.save();
+    res.status(201).json({ message: 'Gossip added.', count: flag.gossip.length });
+  } catch (err) {
+    console.error('Gossip error:', err);
+    res.status(500).json({ error: 'Could not add gossip.' });
+  }
+});
 module.exports = router;

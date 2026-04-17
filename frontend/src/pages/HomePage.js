@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-const API_BASE = process.env.REACT_APP_API_BASE_URL || "";
+const API_BASE = process.env.REACT_APP_API_BASE_URL || "http://localhost:5004/api";
 
 if (!API_BASE) {
   console.error("❌ API_BASE not found. Check .env file");
@@ -189,28 +189,15 @@ const fallbackData = {
     { id: 4, imageUrl: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=1600&auto=format&fit=crop&q=80" },
   ],
   hero: {
-    badge: "India's first community-powered handle intelligence platform",
+    badge: "World's first community-powered handle intelligence platform",
     title: "Know the vibe before you invest.",
     subtitle: "Search any Instagram handle. See real community flags. Drop your own receipts. Anonymous or not — your call.",
   },
   reasons: ["👀 Going on a date", "💍 Shaadi", "🔥 Friends with Benefits", "🛍️ Buying from them", "💼 Work collab", "🤝 Just curious"],
-  stats: { handlesSearched: 12847, redFlagsDropped: 4203, greenFlagsDropped: 8941 },
+  stats: { handlesSearched: 0, redFlagsDropped: 0, greenFlagsDropped: 0 },
   trustPoints: ["See red and green flags", "Post anonymously or publicly", "View both sides when available"],
-  recentFlags: [
-    { id: 1, type: "red", handle: "rohanverma__", category: "Love bombing", anonymous: true, comment: "Came on incredibly strong the first two weeks. Texting all day, future planning, then completely disappeared. Classic pattern.", relation: "💔 Dated", timeframe: "📅 1–6 months ago", locationLabel: "📍 Mumbai", postedAtLabel: "2h ago" },
-    { id: 2, type: "green", handle: "priyasingh.art", category: "Genuine & kind", anonymous: false, comment: "Bought a painting from her. Packed beautifully, delivered on time, responded to every message. 100% recommend her.", relation: "🛍️ Bought/sold", timeframe: "📅 This month", locationLabel: "📍 Delhi", postedAtLabel: "4h ago" },
-    { id: 3, type: "red", handle: "aarav.k", category: "Ghosting", anonymous: true, comment: "After 3 months of talking daily, just stopped replying. No explanation, no closure. Left on read forever.", relation: "☕ Went on a date", timeframe: "📅 Over a year ago", locationLabel: "📍 Bangalore", postedAtLabel: "6h ago" },
-    { id: 4, type: "green", handle: "mehak.designs", category: "Great communicator", anonymous: false, comment: "Worked with her on a freelance project. Always on time, extremely professional. Would hire again without hesitation.", relation: "💼 Work/business", timeframe: "📅 This month", locationLabel: "📍 Pune", postedAtLabel: "8h ago" },
-    { id: 5, type: "red", handle: "the.samarth", category: "Fake / catfish", anonymous: true, comment: "Profile photos don't match the person at all. Met in person and it was a completely different individual. Wasted an evening.", relation: "☕ Went on a date", timeframe: "📅 This week", locationLabel: "📍 Mumbai", postedAtLabel: "12h ago" },
-    { id: 6, type: "green", handle: "neel.photo", category: "Legit & honest", anonymous: false, comment: "Hired for event photography. Delivered everything on time, no hidden charges. Incredibly talented and honest person.", relation: "💼 Work/business", timeframe: "📅 Last month", locationLabel: "📍 Delhi", postedAtLabel: "1d ago" },
-  ],
-  trendingHandles: [
-    { id: 1, handle: "rohanverma__", red: 14, green: 3 },
-    { id: 2, handle: "aarav.k", red: 11, green: 7 },
-    { id: 3, handle: "mehak.designs", red: 2, green: 19 },
-    { id: 4, handle: "the.samarth", red: 9, green: 1 },
-    { id: 5, handle: "priyasingh.art", red: 0, green: 22 },
-  ],
+  recentFlags: [],
+  trendingHandles: [],
   howItWorks: [
     { id: 1, title: "Search any handle", text: "Choose why you're looking them up — date, shaadi, FWB, work or just curious." },
     { id: 2, title: "See community receipts", text: "Real flags weighted by how well people actually knew them." },
@@ -230,10 +217,19 @@ function mapHomePayload(payload) {
     slides: payload.slides?.length ? payload.slides : fallbackData.slides,
     reasons: payload.reasons?.length ? payload.reasons : fallbackData.reasons,
     trustPoints: payload.trustPoints?.length ? payload.trustPoints : fallbackData.trustPoints,
-    recentFlags: payload.recentFlags?.length ? payload.recentFlags : fallbackData.recentFlags,
-    trendingHandles: payload.trendingHandles?.length ? payload.trendingHandles : fallbackData.trendingHandles,
+    recentFlags: Array.isArray(payload.recentFlags) ? payload.recentFlags : fallbackData.recentFlags,
+    trendingHandles: Array.isArray(payload.trendingHandles) ? payload.trendingHandles : fallbackData.trendingHandles,
     howItWorks: payload.howItWorks?.length ? payload.howItWorks : fallbackData.howItWorks,
   };
+}
+
+function parseStoredUser() {
+  try {
+    const user = localStorage.getItem("clocked_user");
+    return user ? JSON.parse(user) : null;
+  } catch {
+    return null;
+  }
 }
 
 export default function HomePage() {
@@ -245,23 +241,58 @@ export default function HomePage() {
 
   // Initialize auth state on mount
 useEffect(() => {
-  const checkAuth = () => {
-    const token = localStorage.getItem("clocked_token");
-    const user = localStorage.getItem("clocked_user");
+  let ignore = false;
 
-    if (token && user) {
+  const syncAuth = async () => {
+    const token = localStorage.getItem("clocked_token");
+    const storedUser = parseStoredUser();
+
+    if (!token) {
+      if (!ignore) {
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+      }
+      return;
+    }
+
+    try {
+      const payload = await apiFetch("/auth/me", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (ignore) return;
+
+      const nextUser = payload?.user || storedUser;
+      if (nextUser) {
+        localStorage.setItem("clocked_user", JSON.stringify(nextUser));
+      }
+
       setIsAuthenticated(true);
-      setCurrentUser(JSON.parse(user));
-    } else {
-      setIsAuthenticated(false);
-      setCurrentUser(null);
+      setCurrentUser(nextUser || null);
+    } catch {
+      localStorage.removeItem("clocked_token");
+      localStorage.removeItem("clocked_user");
+
+      if (!ignore) {
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+      }
     }
   };
 
-  checkAuth();
+  syncAuth();
 
-  window.addEventListener("storage", checkAuth);
-  return () => window.removeEventListener("storage", checkAuth);
+  const handleStorage = () => {
+    syncAuth();
+  };
+
+  window.addEventListener("storage", handleStorage);
+  return () => {
+    ignore = true;
+    window.removeEventListener("storage", handleStorage);
+  };
 }, []);
 
   const [homeData, setHomeData] = useState(fallbackData);
@@ -291,7 +322,7 @@ useEffect(() => {
       } catch (err) {
         if (!ignore) {
           setHomeData(fallbackData);
-          setFeedItems(fallbackData.recentFlags);
+          setFeedItems([]);
           setSelectedReason(fallbackData.reasons[0]);
           setError(err.message || "Failed to load homepage.");
         }
@@ -354,7 +385,10 @@ useEffect(() => {
 
   const navPrimaryAction = isAuthenticated ? { label: "Dashboard", to: "/dashboard" } : { label: "Sign up", to: "/signup" };
   const navSecondaryAction = isAuthenticated ? { label: "Logout", to: "#" } : { label: "Log in", to: "/login" };
-  const showSuggestions = searchFocused && (suggestionsLoading || searchSuggestions.length > 0);
+  const normalizedSearch = searchInput.trim().replace(/^@/, "");
+  const hasSuggestionQuery = normalizedSearch.length >= 2;
+  const showSuggestions = searchFocused && hasSuggestionQuery;
+  const myHandle = currentUser?.instagram_handle || currentUser?.username || "";
 
   function submitSearch(handleOverride) {
     const handle = (handleOverride || searchInput).trim().replace(/^@/, "");
@@ -413,7 +447,7 @@ useEffect(() => {
         <div className="nav-right">
           {isAuthenticated ? (
             <>
-              {/* <Link to="/vibe-card/me" className="btn-ghost">My Card</Link> */}
+              {myHandle ? <Link to={`/vibe-card/${encodeURIComponent(myHandle)}`} className="btn-ghost">My Card</Link> : null}
               <button onClick={handleLogout} className="btn-ghost">{navSecondaryAction.label}</button>
               <Link to={navPrimaryAction.to} className="btn-solid">{navPrimaryAction.label}</Link>
             </>
@@ -434,7 +468,7 @@ useEffect(() => {
         </div>
 
         <h1 className="hero-title">
-          Know the vibe<br/>before you <span className="accent-red">invest</span>.
+          {homeData.hero.title}
         </h1>
 
         <p className="hero-sub">{homeData.hero.subtitle}</p>
@@ -460,6 +494,10 @@ useEffect(() => {
             <div className={`search-dropdown ${showSuggestions ? "show" : ""}`}>
               {suggestionsLoading ? (
                 <div style={{ padding: "10px 16px", fontSize: "0.88rem", color: "var(--gray-5)" }}>Loading suggestions...</div>
+              ) : searchSuggestions.length === 0 ? (
+                <div style={{ padding: "10px 16px", fontSize: "0.88rem", color: "var(--gray-5)" }}>
+                  No matching handles yet. Press enter to search anyway.
+                </div>
               ) : (
                 searchSuggestions.map((h) => {
                   const score = h.score ?? Math.round((h.green || 0) / Math.max((h.green || 0) + (h.red || 0), 1) * 100);
@@ -484,7 +522,7 @@ useEffect(() => {
         </div>
 
         <div className="why-row">
-          <span className="why-label">Searching because:</span>
+          {/* <span className="why-label">Searching because:</span> */}
           {homeData.reasons.map((reason) => (
             <button key={reason} className={`why-pill ${selectedReason === reason ? "active" : ""}`} onClick={() => setSelectedReason(reason)}>
               {reason}
@@ -529,37 +567,54 @@ useEffect(() => {
               </div>
             </div>
 
-            {feedItems.map((item) => (
-              <button key={item.id} className={`flag-card ${item.type === "red" ? "red-card" : "green-card"}`} onClick={() => navigate(`/search?handle=${encodeURIComponent(item.handle)}`)}>
-                <div className={`flag-icon-wrap ${item.type === "red" ? "red" : "green"}`}>{item.type === "red" ? "🚩" : "🟢"}</div>
+            {feedItems.length === 0 ? (
+              <div className="flag-card" style={{ cursor: "default", justifyContent: "center" }}>
                 <div className="flag-body">
                   <div className="flag-top">
-                    <span className="flag-handle">@{item.handle}</span>
-                    <span className={`flag-cat ${item.type === "red" ? "red" : "green"}`}>{item.category}</span>
-                    {item.anonymous ? <span className="flag-anon">🎭 anonymous</span> : null}
+                    <span className="flag-handle">No flags in this filter yet</span>
                   </div>
-                  <p className="flag-comment">{item.comment}</p>
-                  <div className="flag-meta">
-                    <span>{item.relation}</span>
-                    <span>{item.timeframe}</span>
-                    <span>{item.locationLabel}</span>
-                    <span>{item.postedAtLabel}</span>
-                  </div>
+                  <p className="flag-comment">Try another filter or be the first one to add a signal for a handle.</p>
                 </div>
-              </button>
-            ))}
+              </div>
+            ) : (
+              feedItems.map((item) => (
+                <button key={item.id} className={`flag-card ${item.type === "red" ? "red-card" : "green-card"}`} onClick={() => navigate(`/search?handle=${encodeURIComponent(item.handle)}`)}>
+                  <div className={`flag-icon-wrap ${item.type === "red" ? "red" : "green"}`}>{item.type === "red" ? "🚩" : "🟢"}</div>
+                  <div className="flag-body">
+                    <div className="flag-top">
+                      <span className="flag-handle">@{item.handle}</span>
+                      <span className={`flag-cat ${item.type === "red" ? "red" : "green"}`}>{item.category}</span>
+                      {item.anonymous ? <span className="flag-anon">🎭 anonymous</span> : null}
+                    </div>
+                    <p className="flag-comment">{item.comment}</p>
+                    <div className="flag-meta">
+                      <span>{item.relation}</span>
+                      <span>{item.timeframe}</span>
+                      <span>{item.locationLabel}</span>
+                      <span>{item.postedAtLabel}</span>
+                    </div>
+                  </div>
+                </button>
+              ))
+            )}
           </div>
 
           <aside className="sidebar">
             <div className="sidebar-card">
               <p className="sidebar-title">🔥 Trending this week</p>
-              {homeData.trendingHandles.map((item, index) => (
-                <button key={item.id || item.handle} className="trending-item" onClick={() => navigate(`/search?handle=${encodeURIComponent(item.handle)}`)}>
-                  <span className="trending-rank">{index + 1}</span>
-                  <span className="trending-handle">@{item.handle}</span>
-                  <div className="trending-flags"><span className="t-flag r">🚩 {item.red}</span><span className="t-flag g">🟢 {item.green}</span></div>
-                </button>
-              ))}
+              {homeData.trendingHandles.length === 0 ? (
+                <div className="how-step">
+                  <div className="step-text">No trending handles yet. Once people start searching and flagging, this list will populate from live activity.</div>
+                </div>
+              ) : (
+                homeData.trendingHandles.map((item, index) => (
+                  <button key={item.id || item.handle} className="trending-item" onClick={() => navigate(`/search?handle=${encodeURIComponent(item.handle)}`)}>
+                    <span className="trending-rank">{index + 1}</span>
+                    <span className="trending-handle">@{item.handle}</span>
+                    <div className="trending-flags"><span className="t-flag r">🚩 {item.red}</span><span className="t-flag g">🟢 {item.green}</span></div>
+                  </button>
+                ))
+              )}
             </div>
 
             <div className="sidebar-card">

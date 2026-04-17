@@ -122,10 +122,20 @@ const generateToken = (userId) => {
     }
   );
 };
-
+const optionalAuthenticate = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return next(); // no token - continue as guest
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
+  } catch {
+    // invalid token - continue as guest
+  }
+  next();
+}
 module.exports = {
   authenticate,
   optionalAuth,
   requireEmailVerified,
+  optionalAuthenticate,
   generateToken
 };
